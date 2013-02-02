@@ -1,0 +1,26 @@
+
+elmboxo
+
+Copyright (c) 2013 by Waitman Gobble <waitman@waitman.net>
+
+License in COPYING
+
+parse mail found in mbox files and import into mongodb.
+
+example:
+
+m /home/waitman/mail/mbox
+
+Notes
+
+This program was developed on NetBSD running mongodb-2.2.2 
+but should build on other Unix systems.
+
+# uname -a
+NetBSD dx.burplex.com 6.0_STABLE NetBSD 6.0_STABLE (KAINDA) #0: Wed Jan 30 00:25:25 PST 2013  da3m0n8t3r@dx.burplex.com:/usr/obj/sys/arch/i386/compile/KAINDA i386
+
+
+2013-02-02 first git commit 
+Software not yet functional, in development.
+Establish CVS
+
