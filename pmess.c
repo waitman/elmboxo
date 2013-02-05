@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <time.h>
 #include <syslog.h>
+#include <ctype.h>
 #include <uuid.h>
 
 int gn;
@@ -23,8 +24,17 @@ dolog(const char *v) {
 	closelog();
 }
 
+char *
+strtolower(char *src)
+{
+	for (int i=0;i<strlen(src);i++) {
+		src[i] = tolower(src[i]);
+	}
+	return (src);
+}
+
 void 
-rf(char *f,long fstart, long fend) {
+rf(char *f,long fstart, long fend, long end_body) {
 
 	const char *tz="-0000-0100-0200-0300-0400-0500-0600-0700-0800-0900-1000-1100-1200+0000+0100+0200+0300+0400+0500+0600+0700+0800+0900+1000+1100+1200+1300+1400+0330+0430+0530+0630+0930+1030+1130-0330-0430-0930+1245+0545";
 
@@ -56,9 +66,13 @@ rf(char *f,long fstart, long fend) {
 	long lSize;
 	size_t result;
 	lSize = fend-fstart;
+	char bd[71]={0};
+	char contentType[255]={0};
+	int has_boundary=0;
 
 	fseek(file,fstart,SEEK_SET);
-	buffer = (char*) malloc (sizeof(char)*lSize*4);
+	buffer = (char*) malloc (sizeof(char)*lSize+1);
+	buffer[lSize]='\0';
 	result = fread(buffer,1,lSize,file);
 
 	//unfold lines in header
@@ -195,12 +209,7 @@ rf(char *f,long fstart, long fend) {
 				}
 				}
 			}
-			for (int k=0;k<strlen(r);k++) {
-				if ((r[k]>127)||(r[k]<32)) {
-					r[k]='.';
-					//printf("%i",r[k]);
-				}
-			}
+
 			if (dondate>0) {
 				char ts[255]={0};
 				sprintf(ts,"%i",tt++);
@@ -215,14 +224,46 @@ rf(char *f,long fstart, long fend) {
 				bson_append_string(&b,d,r);
 				bson_append_finish_object(&b);
 			}
+
+			if (!strcmp("content-type",strtolower(d))) {
+				memcpy(&contentType,&r,strlen(r));
+				contentType[strlen(r)]='\0';
+				char *boundary = strstr(r,"boundary=");
+				if (boundary) {
+					int st = boundary-r+10;
+					int en = strlen(r);
+					if (r[st+1]=='"') st++;
+					for (int ci=st;ci<strlen(r);ci++) {
+						if ((r[ci]=='"')||
+							(r[ci]==' ')||
+							(r[ci]==';')) {
+								en=ci;
+								break;
+						}
+					}
+					memcpy(&bd,&r[st],en-st);
+					bd[en-st+1]='\0';
+					has_boundary=1;
+				}
+			}
 		}
 	}
 	bson_append_finish_object(&b);
+	lSize = end_body-fend;
+	free(buffer);
+        buffer = (char*) malloc (sizeof(char)*lSize+1);
+	buffer[lSize]='\0';
+        result = fread(buffer,1,lSize,file);
+	bson_append_start_object(&b,"body");
+	bson_append_string(&b,"0",buffer);
+	bson_append_finish_object(&b);
+
 	bson_finish(&b);
 
 	if( mongo_insert( &conn, "mail.mbox", &b, NULL ) != MONGO_OK ) {
 		char err[512]={0};
-		sprintf(err,"FAIL: (%d) %s %s",conn.err,conn.errstr,conn.lasterrstr);
+		sprintf(err,"FAIL: (%d) %s %s [%i %i %i] %i %s %s",conn.err,conn.errstr,conn.lasterrstr,fstart,fend,end_body,has_boundary,contentType,bd);
+		dolog(err);
 	}
 
 	bson_destroy( &b );
@@ -241,7 +282,7 @@ main (int argc, char **argv)
 	dolog(mess);
 	*/
 	gn=atoi(argv[2]);
-	rf (argv[1],atoi(argv[2]),atoi(argv[3]));
+	rf (argv[1],atoi(argv[2]),atoi(argv[3]),atoi(argv[4]));
 	exit(EXIT_SUCCESS);
 }
 

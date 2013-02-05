@@ -6,7 +6,7 @@
 #include <time.h>
 #include <syslog.h>
 
-#define MAX_MESSAGES 250000
+#define MAX_MESSAGES 170000
 
 void
 dolog(const char *v) {
@@ -20,15 +20,18 @@ rf(char *f) {
 
 	long int markers[MAX_MESSAGES];
 	long int headers[MAX_MESSAGES];
+	long int finish[MAX_MESSAGES];
 
 	int header=0;
 	int msg_number=0;
+	long int last=0;
+	long int this_pos=0;
 	int ln=0;
 
 	FILE *file = fopen(f,"r");
 	if (file!=NULL)
 	{
-		char line[256];
+		char line[256]={0};
 		while (fgets(line,sizeof line, file)!=NULL)
 		{
 
@@ -38,6 +41,7 @@ rf(char *f) {
 			{
 				if ((loc-line)==0)
 				{
+					if (msg_number>0) finish[msg_number-1]=this_pos;
 					markers[msg_number]=ftell(file);
 					msg_number++;
 					header=1;
@@ -51,22 +55,25 @@ rf(char *f) {
 					}
 				}
 			}
-
+			this_pos = ftell(file);
 		}
+		last=ftell(file);
 		fclose(file);
 	} else {
 		perror(f);
 	}
 
 	char msg[1024] = {0};
-	sprintf(msg,"Found %i msgs in %s.",msg_number,f);
+	sprintf(msg,"Found %i msgs in %s. (%i bytes)",msg_number,f,last);
 	dolog(msg);
+	finish[msg_number-1]=last;
 	while (msg_number>0) {
 		//printf("%i mess\n",msg_number);
 		msg_number--;
-		char cmd[256]={0};
-		sprintf(cmd,"./pmess \"%s\" %i %i",f,markers[msg_number],headers[msg_number+1]);
+		char cmd[1024]={0};
+		sprintf(cmd,"./pmess \"%s\" %i %i %i",f,markers[msg_number],headers[msg_number+1],finish[msg_number]);
 		system(cmd);
+		//printf("%s\n",cmd);
 	}
 }
 
