@@ -6,8 +6,10 @@
 #include <limits.h>
 #include <time.h>
 #include <syslog.h>
-#include <ctype.h>
 #include <uuid.h>
+#include <wchar.h>
+#include <wctype.h>
+#include <locale.h>
 
 int gn;
 
@@ -24,11 +26,11 @@ dolog(const char *v) {
 	closelog();
 }
 
-char *
-strtolower(char *src)
+wchar_t *
+strtolower(wchar_t *src)
 {
-	for (int i=0;i<strlen(src);i++) {
-		src[i] = tolower(src[i]);
+	for (int i=0;i<wcslen(src);i++) {
+		src[i] = towlower(src[i]);
 	}
 	return (src);
 }
@@ -36,7 +38,7 @@ strtolower(char *src)
 void 
 rf(char *f,long fstart, long fend, long end_body) {
 
-	const char *tz="-0000-0100-0200-0300-0400-0500-0600-0700-0800-0900-1000-1100-1200+0000+0100+0200+0300+0400+0500+0600+0700+0800+0900+1000+1100+1200+1300+1400+0330+0430+0530+0630+0930+1030+1130-0330-0430-0930+1245+0545";
+	const wchar_t *tz=L"-0000-0100-0200-0300-0400-0500-0600-0700-0800-0900-1000-1100-1200+0000+0100+0200+0300+0400+0500+0600+0700+0800+0900+1000+1100+1200+1300+1400+0330+0430+0530+0630+0930+1030+1130-0330-0430-0930+1245+0545";
 
 	mongo conn;
 
@@ -59,28 +61,27 @@ rf(char *f,long fstart, long fend, long end_body) {
 	gethostname(hostname,_POSIX_HOST_NAME_MAX);
 
 	FILE *file = fopen(f,"r");
+	fwide(file,1);
 	
-	char *buffer;
-	char *nbuf;
-	char *loc;
+	wchar_t *buffer;
+	wchar_t *loc;
 	long lSize;
 	size_t result;
 	lSize = fend-fstart;
-	char bd[71]={0};
-	char contentType[255]={0};
+	wchar_t bd[71]={0};
+	wchar_t contentType[255]={0};
 	int has_boundary=0;
 
 	fseek(file,fstart,SEEK_SET);
-	buffer = (char*) malloc (sizeof(char)*lSize+1);
-	buffer[lSize]='\0';
+	buffer = (wchar_t*) malloc (sizeof(wchar_t)*lSize*5);
 	result = fread(buffer,1,lSize,file);
 
 	//unfold lines in header
 	int j;
-	for (j=0;j<strlen(buffer)-1;j++) {
-		if (buffer[j]=='\n') {
-			if ((buffer[j+1]==' ')||(buffer[j+1]=='\t')) {
-				buffer[j]=' ';
+	for (j=0;j<wcslen(buffer)-1;j++) {
+		if (buffer[j]==L'\n') {
+			if ((buffer[j+1]==L' ')||(buffer[j+1]==L'\t')) {
+				buffer[j]=L' ';
 				j++;
 			}
 		}
@@ -88,18 +89,18 @@ rf(char *f,long fstart, long fend, long end_body) {
 
 	//replace tabs with spaces
 	int len;
-	len = strlen(buffer);
+	len = wcslen(buffer);
 	for (j=0;j<len;j++) {
-		if (buffer[j]=='\t') {
-			buffer[j]=' ';
+		if (buffer[j]==L'\t') {
+			buffer[j]=L' ';
 		}
 	}
 
 	//strip extra whitespace
-	while (strstr(buffer,"  ")) {
+	while (wcsstr(buffer,L"  ")) {
 		for (j=0;j<len-1;j++) {
-			if (buffer[j]==' ') {
-				if (buffer[j+1]==' ') {
+			if (buffer[j]==L' ') {
+				if (buffer[j+1]==L' ') {
 					memmove(&buffer[j],&buffer[j+1],
 						(len-j-1));
 					//printf("%i\n",len);
@@ -151,50 +152,50 @@ rf(char *f,long fstart, long fend, long end_body) {
 
 	for (j=0;j<len;j++) {
 		if (reset==0) {
-			if (buffer[j]==':') {
+			if (buffer[j]==L':') {
 				prong=j;
 				reset=1;
 			}
 		}
 		//split the header line at the first ':'
-		if (buffer[j]=='\n') {
+		if (buffer[j]==L'\n') {
 
-			char d[80] = {0};
- 			char r[8192] = {0};
+			wchar_t d[80] = {0};
+ 			wchar_t r[8192] = {0};
 
 			memcpy(&d,&buffer[start],prong-start);
 			d[prong-start]='\0';
 			memcpy(&r,&buffer[prong+1],j-prong-1);
 			r[j-prong-1]='\0';
 			//remove leading space if exists
-			if (r[0]==' ') {
+			if (r[0]==L' ') {
 				memmove(&r[0],&r[1],j-prong-2);
 				r[j-prong-2]='\0';
 			}
 			//remove $,. from d
-			for (int k=0;k<strlen(d);k++) {
-				if (d[k]=='$') d[k]='_';
-				if (d[j]=='.') d[k]='_';
+			for (int k=0;k<wcslen(d);k++) {
+				if (d[k]==L'$') d[k]=L'_';
+				if (d[j]==L'.') d[k]=L'_';
 			}
 			reset=0;
 			start=j+1;
 
-			char ndate[26]={0};
+			wchar_t ndate[26]={0};
 			int dondate=0;
 
 			//attempt to find timezone in line to parse date
-			for (int k=0;k<strlen(tz);k+=5) {
+			for (int k=0;k<wcslen(tz);k+=5) {
 				if (dondate<1) {
-				char x[6]={0};
+				wchar_t x[6]={0};
 				memcpy(&x[0],&tz[k],5);
 				x[6]='\0';
-				loc = strstr(r,x);
+				loc = wcsstr(r,x);
 				if (loc) {
 					//solve -0000 in id
-					if (r[loc-r-1]==' ') {
+					if (r[loc-r-1]==L' ') {
 					int dtstart=(loc-r)-21;
-					if (r[dtstart]==' ') {
-						ndate[0]='0';
+					if (r[dtstart]==L' ') {
+						ndate[0]=L'0';
 						memcpy(&ndate[1],&r[dtstart+1],
 							25);
 						ndate[26]='\0';
@@ -214,29 +215,43 @@ rf(char *f,long fstart, long fend, long end_body) {
 				char ts[255]={0};
 				sprintf(ts,"%i",tt++);
 				bson_append_start_object(&b,ts);
-				bson_append_string(&b,"ph",ndate);
-				bson_append_string(&b,d,r);
+
+char mbc_ndate[1024]={0};
+wcstombs(mbc_ndate,ndate,wcslen(ndate));
+				bson_append_string(&b,"ph",mbc_ndate);
+
+char mbc_d[1024]={0};
+wcstombs(mbc_d,d,wcslen(d));
+char mbc_r[4192]={0};
+wcstombs(mbc_r,r,wcslen(r));
+				bson_append_string(&b,mbc_d,mbc_r);
 				bson_append_finish_object(&b);
 			} else {
 				char ts[255]={0};
 				sprintf(ts,"%i",tt++);
 				bson_append_start_object(&b,ts);
-				bson_append_string(&b,d,r);
+
+char mbc_d[1024]={0};
+wcstombs(mbc_d,d,wcslen(d));
+char mbc_r[4192]={0};
+wcstombs(mbc_r,r,wcslen(r));
+
+				bson_append_string(&b,mbc_d,mbc_r);
 				bson_append_finish_object(&b);
 			}
 
-			if (!strcmp("content-type",strtolower(d))) {
-				memcpy(&contentType,&r,strlen(r));
-				contentType[strlen(r)]='\0';
-				char *boundary = strstr(r,"boundary=");
+			if (!wcscmp(L"content-type",strtolower(d))) {
+				memcpy(&contentType,&r,wcslen(r));
+				contentType[wcslen(r)]='\0';
+				wchar_t *boundary = wcsstr(r,L"boundary=");
 				if (boundary) {
 					int st = boundary-r+10;
-					int en = strlen(r);
+					int en = wcslen(r);
 					if (r[st+1]=='"') st++;
-					for (int ci=st;ci<strlen(r);ci++) {
-						if ((r[ci]=='"')||
-							(r[ci]==' ')||
-							(r[ci]==';')) {
+					for (int ci=st;ci<wcslen(r);ci++) {
+						if ((r[ci]==L'"')||
+							(r[ci]==L' ')||
+							(r[ci]==L';')) {
 								en=ci;
 								break;
 						}
@@ -251,11 +266,16 @@ rf(char *f,long fstart, long fend, long end_body) {
 	bson_append_finish_object(&b);
 	lSize = end_body-fend;
 	free(buffer);
-        buffer = (char*) malloc (sizeof(char)*lSize+1);
-	buffer[lSize]='\0';
+        buffer = (wchar_t*) calloc (lSize*5,sizeof(wchar_t));
         result = fread(buffer,1,lSize,file);
 	bson_append_start_object(&b,"body");
-	bson_append_string(&b,"0",buffer);
+
+
+
+char *mbc_buffer = (char*) calloc(wcslen(buffer)*2,sizeof(char));
+wcstombs(mbc_buffer,buffer,wcslen(buffer));
+
+	bson_append_string(&b,"0",mbc_buffer);
 	bson_append_finish_object(&b);
 
 	bson_finish(&b);
@@ -264,6 +284,24 @@ rf(char *f,long fstart, long fend, long end_body) {
 		char err[512]={0};
 		sprintf(err,"FAIL: (%d) %s %s [%i %i %i] %i %s %s",conn.err,conn.errstr,conn.lasterrstr,fstart,fend,end_body,has_boundary,contentType,bd);
 		dolog(err);
+
+		char ef[24] = {0};
+		FILE *efp;
+		int fd = -1;
+		strlcpy(ef,"/var/wrecked/err.XXXXXX",sizeof ef);
+		if ((fd = mkstemp(ef)) == -1 ||
+			(efp = fdopen(fd,"w+")) == NULL) {
+			if (fd!=-1) {
+				unlink(ef);
+				close(fd);
+			}
+		} else {
+			fwprintf(efp,L"%s",buffer);
+			sprintf(err,"Errors [%s|%i|%i|%i] went to %s",f,fstart,fend,end_body,ef);
+			dolog(err);
+			close(fd);
+		}
+
 	}
 
 	bson_destroy( &b );
@@ -275,6 +313,9 @@ rf(char *f,long fstart, long fend, long end_body) {
 int
 main (int argc, char **argv)
 {
+        setlocale(LC_ALL,"");
+        setlocale(LC_CTYPE,"en_US.UTF-8");
+
 	//printf("file: %s start: %s end: %s\n",argv[1],argv[2],argv[3]);
 	/*
 	char mess[255] = {0};

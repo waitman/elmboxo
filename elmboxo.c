@@ -5,6 +5,8 @@
 #include <limits.h>
 #include <time.h>
 #include <syslog.h>
+#include <wchar.h>
+#include <locale.h>
 
 #define MAX_MESSAGES 170000
 
@@ -29,14 +31,15 @@ rf(char *f) {
 	int ln=0;
 
 	FILE *file = fopen(f,"r");
+	fwide(file,1);
 	if (file!=NULL)
 	{
-		char line[256]={0};
-		while (fgets(line,sizeof line, file)!=NULL)
+		wchar_t line[1024]={0};
+		while (fgetws(line,sizeof line, file)!=NULL)
 		{
 
 			ln++;
-			char *loc = strstr(line,"From ");
+			wchar_t *loc = wcsstr(line,L"From ");
 			if (loc)
 			{
 				if ((loc-line)==0)
@@ -48,7 +51,7 @@ rf(char *f) {
 				}
 			} else {
 				if (header>0) {
-					if (strlen(line)==1) {
+					if (wcslen(line)==1) {
 						header=0;
 						headers[msg_number]=
 							ftell(file)-1;
@@ -73,13 +76,15 @@ rf(char *f) {
 		char cmd[1024]={0};
 		sprintf(cmd,"./pmess \"%s\" %i %i %i",f,markers[msg_number],headers[msg_number+1],finish[msg_number]);
 		system(cmd);
-		//printf("%s\n",cmd);
+	//printf("%s\n",cmd);
 	}
 }
 
 int
 main (int argc, char **argv)
 {
+	setlocale(LC_ALL,"");
+	setlocale(LC_CTYPE,"en_US.UTF-8");
 	argc--;
 	*argv++;
 	while (argc--)
