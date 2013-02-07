@@ -5,10 +5,9 @@
 #include <limits.h>
 #include <time.h>
 #include <syslog.h>
-#include <wchar.h>
 #include <locale.h>
 
-#define MAX_MESSAGES 170000
+#define MAX_MESSAGES 250000
 
 void
 dolog(const char *v) {
@@ -22,7 +21,6 @@ rf(char *f) {
 
 	long int markers[MAX_MESSAGES];
 	long int headers[MAX_MESSAGES];
-	long int finish[MAX_MESSAGES];
 
 	int header=0;
 	int msg_number=0;
@@ -31,27 +29,25 @@ rf(char *f) {
 	int ln=0;
 
 	FILE *file = fopen(f,"r");
-	fwide(file,1);
 	if (file!=NULL)
 	{
-		wchar_t line[1024]={0};
-		while (fgetws(line,sizeof line, file)!=NULL)
+		char line[1024]={0};
+		while (fgets(line,sizeof line, file)!=NULL)
 		{
 
 			ln++;
-			wchar_t *loc = wcsstr(line,L"From ");
+			char *loc = strstr(line,"From ");
 			if (loc)
 			{
 				if ((loc-line)==0)
 				{
-					if (msg_number>0) finish[msg_number-1]=this_pos;
 					markers[msg_number]=ftell(file);
 					msg_number++;
 					header=1;
 				}
 			} else {
 				if (header>0) {
-					if (wcslen(line)==1) {
+					if (strlen(line)==1) {
 						header=0;
 						headers[msg_number]=
 							ftell(file)-1;
@@ -69,12 +65,12 @@ rf(char *f) {
 	char msg[1024] = {0};
 	sprintf(msg,"Found %i msgs in %s. (%i bytes)",msg_number,f,last);
 	dolog(msg);
-	finish[msg_number-1]=last;
+	markers[msg_number]=last;
 	while (msg_number>0) {
 		//printf("%i mess\n",msg_number);
 		msg_number--;
 		char cmd[1024]={0};
-		sprintf(cmd,"./pmess \"%s\" %i %i %i",f,markers[msg_number],headers[msg_number+1],finish[msg_number]);
+		sprintf(cmd,"./pmess \"%s\" %i %i %i",f,markers[msg_number],headers[msg_number+1],markers[msg_number+1]);
 		system(cmd);
 	//printf("%s\n",cmd);
 	}
