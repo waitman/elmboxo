@@ -35,6 +35,20 @@ strtolower(char *src)
 	return (src);
 }
 
+char *
+alpha(char *src)
+{
+        for (int i=0;i<strlen(src);i++) {
+		if (isalpha(src[i])) {
+                	src[i] = tolower(src[i]);
+		} else {
+			src[i] = ' ';
+		}
+        }
+        return (src);
+}
+
+
 void 
 rf(char *f,long fstart, long fend, long end_body) {
 
@@ -56,6 +70,7 @@ rf(char *f,long fstart, long fend, long end_body) {
         }
 
 
+	
 	char hostname[_POSIX_HOST_NAME_MAX] = {0};
 
 	gethostname(hostname,_POSIX_HOST_NAME_MAX);
@@ -69,6 +84,8 @@ rf(char *f,long fstart, long fend, long end_body) {
 	lSize = fend-fstart;
 	char bd[71]={0};
 	char contentType[255]={0};
+	char charset[32]={0};
+	int has_charset=0;
 	int has_boundary=0;
 
 	fseek(file,fstart,SEEK_SET);
@@ -231,7 +248,7 @@ rf(char *f,long fstart, long fend, long end_body) {
 				contentType[strlen(r)]='\0';
 				char *boundary = strstr(r,"boundary=");
 				if (boundary) {
-					int st = boundary-r+10;
+					int st = boundary-r+9;
 					int en = strlen(r);
 					if (r[st+1]=='"') st++;
 					for (int ci=st;ci<strlen(r);ci++) {
@@ -246,6 +263,24 @@ rf(char *f,long fstart, long fend, long end_body) {
 					bd[en-st+1]='\0';
 					has_boundary=1;
 				}
+                                char *cs = strstr(r,"charset=");
+                                if (cs) {
+                                        int st = cs-r+8;
+                                        int en = strlen(r);
+                                        if (r[st+1]=='"') st++;
+                                        for (int ci=st;ci<strlen(r);ci++) {
+                                                if ((r[ci]=='"')||
+                                                        (r[ci]==' ')||
+                                                        (r[ci]==';')) {
+                                                                en=ci;
+                                                                break;
+                                                }
+                                        }
+                                        memcpy(&charset,&r[st],en-st);
+                                        charset[en-st+1]='\0';
+                                        has_charset=1;
+                                }
+
 			}
 		}
 	}
@@ -256,14 +291,21 @@ rf(char *f,long fstart, long fend, long end_body) {
         result = fread(buffer,1,lSize,file);
 	bson_append_start_object(&b,"body");
 
-//insering ISO-8859-1 into mongodb can cause problems. needs to be UTF-8
-//at the moment stripping out non-ascii chars here
-if (strstr(contentType,"ISO-8859-1")) { 
+//if it is not ascii try to convert to ascii
+//temporary! 
+
+if (has_charset) {
+char chkc[200]={0};
+sprintf(chkc,"%s",strtolower(charset));
+
+if (!strstr(chkc,"ascii")) { 
 	iconv_t cd = 0;
-	cd = iconv_open("US-ASCII","ISO-8859-1"); //might go utf-8 instead :)
+	cd = iconv_open("US-ASCII",chkc); 
 	if (cd == (iconv_t) -1) {
-		printf("Cannot open iconv\n");
-		exit(1);
+		//cannot convert, perhaps no codepage
+		char err[512]={0};
+		sprintf(err,"Error: no codepage %s",charset);
+		dolog(err);
 	} else {
 		size_t inbytes = 4;
 		size_t outbytes = 4;
@@ -278,9 +320,36 @@ if (strstr(contentType,"ISO-8859-1")) {
 		free(ures);
 	}
 } else {
+	//try it anyway, might fail
 	bson_append_string(&b,"0",buffer);
 }
+} else {
+	//no charset specified
+        bson_append_string(&b,"0",buffer);
+}
 	bson_append_finish_object(&b);
+
+
+//keywords - THINK about images/attachments
+//strip non-alpha -- THINK about hyphenated words.
+char *clean;
+clean = (char*) calloc (lSize*2,sizeof(char));
+sprintf(clean,"%s",alpha(buffer));
+        //strip extra whitespace
+        while (strstr(clean,"  ")) {
+                for (j=0;j<len-1;j++) {
+                        if (clean[j]==' ') {
+                                if (clean[j+1]==' ') {
+                                        memmove(&clean[j],&clean[j+1],
+                                                (len-j-1));
+                                        len--;
+                                        clean[len]='\0';
+                                }
+                        }
+                }
+        }
+
+printf("%s\n",clean);
 
 	bson_finish(&b);
 
