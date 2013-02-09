@@ -1,3 +1,8 @@
+/*
+elmboxo.c
+Copyright 2013 by Waitman Gobble <waitman@waitman.net>
+See COPYING for LICENSE Information
+*/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

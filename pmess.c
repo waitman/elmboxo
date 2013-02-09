@@ -1,3 +1,9 @@
+/*
+pmess.c
+Copyright 2013 by Waitman Gobble <waitman@waitman.net>
+See COPYING for LICENSE information
+*/
+
 #include "mongo.h"
 #include <stdio.h>
 #include <string.h>
