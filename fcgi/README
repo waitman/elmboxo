@@ -1,0 +1,55 @@
+
+2013-02-09 Copyright by Waitman Gobble
+See COPYING for LICENSE Information
+
+
+*IN PROGRESS*
+
+run.cpp - a fastcgi program that loads an html template, 
+	loads and injects static content,
+	and loads dynamic lua generated content.
+	(put your lua code in function main() and return the output.)
+	uses Boost and FastCGI / fcgiapp.h
+
+make.sh - build run (output run.fcgi)
+
+lighttpd.conf - running fastcgi through lighttpd on NetBSD. config file 
+	example to run this project. 
+	(runs HTTPD over 443/SSL, change as needed)
+
+layout.html - sample HTML layout
+
+test.html - sample static HTML content page
+
+test.lua - sample dynamic lua script 
+	load mongo.so into lua and query mail.keysrc, return output
+
+
+**** **** **** ****
+
+NOTE: uses the luamongo library by moai
+https://github.com/moai/luamongo
+
+(for NetBSD build see modified fork: https://github.com/waitman/luamongo)
+
+
+**** **** **** ****
+
+example output:
+
+https://www.example.com/test
+(note: at the moment it will return 500 error if you do not explicitly
+	specify the static page URL.. $TODO)
+
+This is a test
+
+This is a test
+b5cd1d76-7244-11e2-beb0-000e0c4becb6
+b5d2c16c-7244-11e2-beb0-000e0c4becb6
+b5d48246-7244-11e2-beb0-000e0c4becb6
+b5d7c38f-7244-11e2-beb0-000e0c4becb6
+b5db0536-7244-11e2-beb0-000e0c4becb6
+b5de4639-7244-11e2-beb0-000e0c4becb6
+b5e18ec7-7244-11e2-beb0-000e0c4becb6
+...
+
