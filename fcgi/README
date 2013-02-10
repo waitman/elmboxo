@@ -20,9 +20,14 @@ lighttpd.conf - running fastcgi through lighttpd on NetBSD. config file
 layout.html - sample HTML layout
 
 test.html - sample static HTML content page
+index.html - sample default directory index page
+
+404.html - 404 page
 
 test.lua - sample dynamic lua script 
-	load mongo.so into lua and query mail.keysrc, return output
+	load mongo.so into lua and query mail.mbox, return output
+
+func.lua - www helper functions
 
 
 **** **** **** ****
@@ -37,19 +42,28 @@ https://github.com/moai/luamongo
 
 example output:
 
-https://www.example.com/test
-(note: at the moment it will return 500 error if you do not explicitly
-	specify the static page URL.. $TODO)
+https://www.example.com/test.lua
 
-This is a test
 
-This is a test
-b5cd1d76-7244-11e2-beb0-000e0c4becb6
-b5d2c16c-7244-11e2-beb0-000e0c4becb6
-b5d48246-7244-11e2-beb0-000e0c4becb6
-b5d7c38f-7244-11e2-beb0-000e0c4becb6
-b5db0536-7244-11e2-beb0-000e0c4becb6
-b5de4639-7244-11e2-beb0-000e0c4becb6
-b5e18ec7-7244-11e2-beb0-000e0c4becb6
+<!doctype html>
+<html>
+<head>
+<title></title>
+<style type="text/css">
+body { font-family: Arial; font-size: 90%; }
+#content { width:98%; }
+table { width:100%; border:0; }
+th { text-align: left; background-color:#ccc;border-bottom:1px solid #000; }
+td { padding:1px; border-bottom: 1px solid #ccc; }
+</style>
+</head>
+
+<body>
+<div id="content">
+<table><tr><th>Subject</th><th>From</th><th>Date</th><th>To</th></tr><tr><td>testing 123!</td><td>Waitman Gobble &lt;gobble.wa@gmail.com&gt;</td><td nowrap="nowrap">Sun, 10 Feb 2013 07:07:28 -0800</td><td>waitman@dx.burplex.com</td></tr></table>
+</div>
+</body>
+</html>
+
 ...
 

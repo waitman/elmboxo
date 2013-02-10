@@ -1,12 +1,16 @@
 /*
-run.cpp Waitman Gobble 2013-02-09
-see COPYING for LICENCE Information
+run.cpp - Copyright 2013 Waitman Gobble <waitman@waitman.net>
+See COPYING for LICENSE Info
 */
+
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <string>
+#include <cstring>
 #include <syslog.h>
 #include <fcgiapp.h>
+#include <fcgio.h>
+#include <fcgi_config.h>
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -18,7 +22,10 @@ see COPYING for LICENCE Information
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 #include <vector>
+
+#define STDIN_MAX	10000000
 
 extern "C" {
 #include "lua.h"
@@ -31,6 +38,7 @@ extern "C" {
 
 using namespace std;
 using namespace boost;
+using namespace boost::filesystem;
 
 lua_State *L;
 
@@ -86,6 +94,38 @@ get_file_contents(string filename)
 	throw(errno);
 }
 
+static long
+getreq (const FCGX_Request * req, char ** content)
+{
+	openlog("runfcgi", LOG_CONS|LOG_NDELAY, LOG_USER);
+	char * cs = FCGX_GetParam("CONTENT_LENGTH",req->envp);
+	unsigned long cl = STDIN_MAX;
+	if (cs) {
+		cl = strtol(cs,&cs,10);
+		syslog (LOG_INFO, "cla: %d", cl);
+		if (*cs)
+		{
+			cl = STDIN_MAX;
+		}
+		if (cl > STDIN_MAX)
+		{
+			cl = STDIN_MAX;
+		}
+	} else {
+		cl = 0;
+		*content = 0;
+	}
+	*content = new char[cl];
+	cin.read(*content, cl);
+	syslog (LOG_INFO, "csa: %s", content);
+	cl = cin.gcount();
+
+	do cin.ignore(1024); while (cin.gcount() == 1024);
+	
+	return cl;
+}
+
+
 std::string
 exec(const char* cmd)
 {
@@ -138,34 +178,83 @@ main(int argc, char** argv)
 			syslog(LOG_INFO, "FCGX_Accept_r stopped: %d", err);
 			break;
 		}
+
+		fcgi_streambuf cin_fcgi_streambuf(cgi.in);
+		fcgi_streambuf cout_fcgi_streambuf(cgi.out);
+		fcgi_streambuf cerr_fcgi_streambuf(cgi.err);
+#if HAVE_IOSTREAM_WITHASSIGN_STREAMBUF
+		cin  = &cin_fcgi_streambuf;
+		cout = &cout_fcgi_streambuf;
+		cerr = &cerr_fcgi_streambuf;
+#else
+		cin.rdbuf(&cin_fcgi_streambuf);
+		cout.rdbuf(&cout_fcgi_streambuf);
+		cerr.rdbuf(&cerr_fcgi_streambuf);
+#endif
 		int size = 200;
 	
 //CONTENT BEFORE SIZE
 
 		char uri[255];
-		string the_page;
+		string the_page,qs;
 		strcpy(uri,FCGX_GetParam("REQUEST_URI",cgi.envp));
-		syslog (LOG_INFO, "Request: %s", uri);
+
+		if (strlen(uri)==1) strcpy(uri,"index.html");
+
+		vector <string> ex;
+		char * pt;
+		pt=strstr(uri,"?");
+		if (pt!=NULL) {
+			split(ex,uri,is_any_of("?"));
+			if (!ex[0].empty()) 
+				strcpy(uri,ex[0].c_str());
+			if (!ex[1].empty())
+				qs=ex[1];
+		}
+
 		vector <string> pcs;
 		split(pcs,uri,is_any_of("/"));
 		if (pcs.size()<1) {
 			the_page = "/www/bin/static/index.html";
 		} else {
-			the_page = "/www/bin/static/"+pcs[pcs.size()-1]+".html";
+			the_page = "/www/bin/static/"+pcs[pcs.size()-1];
 		}
-		syslog (LOG_INFO, "Static: %s", the_page.c_str());
+		if (!exists(the_page)) {
+			syslog (LOG_INFO, "404NF: %s", the_page.c_str());
+			the_page="/www/bin/static/404.html";
+		}
+			
 
-		string content =
-			get_file_contents(the_page);
+		string content = "";
 
 
-//lua test
-		L = lua_open();
-		luaL_openlibs(L);
-		luaL_dofile(L,"/www/bin/static/test.lua");
-		string op = luamain();
-		content += op;
-		lua_close(L);
+		if (!find_first(the_page,".lua")) {
+			content = get_file_contents(the_page);
+		} else {
+
+			char * req;
+			unsigned long cl = getreq(&cgi,&req);
+			L = lua_open();
+			luaL_openlibs(L);
+
+			lua_newtable( L );
+			lua_pushnumber(L,1);
+			lua_pushstring(L,qs.c_str());
+			lua_rawset( L, -3 );
+			lua_pushnumber(L,2);
+			lua_pushstring(L,req);
+			lua_rawset( L, -3 );
+			lua_pushliteral( L, "n" );
+			lua_pushnumber( L, 2 );
+			lua_rawset( L, -3 );
+			lua_setglobal( L, "arg" );
+
+			luaL_dofile(L,the_page.c_str());
+			string op = luamain();
+			content = op;
+			lua_close(L);
+
+		}
 
 		string html = layout;
 		replace(html, "<!--Content-->", content);

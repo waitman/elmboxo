@@ -38,6 +38,6 @@ main (int argc, char *argv[])
 	char cmd[1024]={0};
 	sprintf(cmd,"/home/da3m0n8t3r/elmboxo/elmboxo \"%s\"",ef); 
 	system(cmd);
-	//unlink(ef);
+	unlink(ef);
 	return (1);
 }
