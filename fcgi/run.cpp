@@ -1,8 +1,7 @@
 /*
-run.cpp - Copyright 2013 Waitman Gobble <waitman@waitman.net>
-See COPYING for LICENSE Info
+run.cpp - Copyright 2013 by Waitman Gobble <waitman@waitman.net>
+see COPYING for LICENSE Information
 */
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string>
@@ -102,7 +101,6 @@ getreq (const FCGX_Request * req, char ** content)
 	unsigned long cl = STDIN_MAX;
 	if (cs) {
 		cl = strtol(cs,&cs,10);
-		syslog (LOG_INFO, "cla: %d", cl);
 		if (*cs)
 		{
 			cl = STDIN_MAX;
@@ -117,7 +115,6 @@ getreq (const FCGX_Request * req, char ** content)
 	}
 	*content = new char[cl];
 	cin.read(*content, cl);
-	syslog (LOG_INFO, "csa: %s", content);
 	cl = cin.gcount();
 
 	do cin.ignore(1024); while (cin.gcount() == 1024);
