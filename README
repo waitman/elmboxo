@@ -20,7 +20,23 @@ but should build on other Unix systems.
 NetBSD dx.burplex.com 6.0_STABLE NetBSD 6.0_STABLE (KAINDA) #0: Wed Jan 30 00:25:25 PST 2013  da3m0n8t3r@dx.burplex.com:/usr/obj/sys/arch/i386/compile/KAINDA i386
 
 
+2013-02-10 updates
+
+ivox.c -- small program to read STDIN into temp file, pass to elmboxo
+	you can use this with procmail, ie
+
+~/.procmailrc
+
+:0
+! `/home/da3m0n8t3r/elmboxo/ivox`
+
+	pmess.c is the mail parser
+	there is a 'common word list' you can edit to your needs.
+	it's based on news parsing software so it's not exactly perfect
+	for email. also numerous dupes in the list.. updates soon. 
+
 2013-02-02 first git commit 
 Software not yet functional, in development.
 Establish CVS
+
 

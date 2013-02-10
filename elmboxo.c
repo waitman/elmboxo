@@ -75,7 +75,7 @@ rf(char *f) {
 		//printf("%i mess\n",msg_number);
 		msg_number--;
 		char cmd[1024]={0};
-		sprintf(cmd,"./pmess \"%s\" %i %i %i",f,markers[msg_number],headers[msg_number+1],markers[msg_number+1]);
+		sprintf(cmd,"/home/da3m0n8t3r/elmboxo/pmess \"%s\" %i %i %i",f,markers[msg_number],headers[msg_number+1],markers[msg_number+1]);
 		system(cmd);
 	//printf("%s\n",cmd);
 	}
